@@ -17,20 +17,27 @@ use crate::{
     },
 };
 
+/// CacheTable is a table within the cache
 #[derive(Clone)]
 pub struct CacheTable {
     inner: Arc<CacheTableInner>,
 }
 
 struct CacheTableInner {
+    /// The table's name.
     name: String,
+    /// All cached items.
     items: RwLock<HashMap<TypedKey, CacheItem>>,
+    /// The interval for cleaning up expired items.
     clean_up_interval: ArcSwap<Duration>,
     #[allow(clippy::type_complexity)]
+    /// Callback method triggered when trying to load a non-existing key.
     load_data: RwLock<Option<Box<dyn Fn(TypedKey) -> Option<CacheItem> + Send + Sync>>>,
     #[allow(clippy::type_complexity)]
+    /// Callback methods triggered when an item is added to the cache.
     added_item: RwLock<Vec<Box<dyn Fn(CacheItem) + Send + Sync>>>,
     #[allow(clippy::type_complexity)]
+    /// Callback methods triggered when an item is about to be deleted from the cache.
     about_to_delete_item: RwLock<Vec<Box<dyn Fn(CacheItem) + Send + Sync>>>,
     tx: UnboundedSender<()>,
 }
@@ -126,10 +133,12 @@ impl CacheTable {
         cache_table
     }
 
+    /// Return how many items are currently stored in the cache.
     pub fn count(&self) -> usize {
         self.inner.items.read().unwrap().len()
     }
 
+    /// Trans all items
     pub fn foreach(&self, trans: impl Fn(&TypedKey, CacheItem)) {
         let items = self.inner.items.read().unwrap();
         for (k, v) in items.iter() {
@@ -137,6 +146,7 @@ impl CacheTable {
         }
     }
 
+    /// Configures a data-loader callback, which will be called when trying to access a non-existing key.
     pub fn set_data_loader(
         &mut self,
         f: impl Fn(TypedKey) -> Option<CacheItem> + Send + Sync + 'static,
@@ -144,6 +154,7 @@ impl CacheTable {
         *self.inner.load_data.write().unwrap() = Some(Box::new(f));
     }
 
+    /// Configures a callback, which will be called when an item is added to the cache.
     pub fn set_added_item_callback(&mut self, f: impl Fn(CacheItem) + Send + Sync + 'static) {
         if !self.inner.added_item.read().unwrap().is_empty() {
             self.remove_added_item_callbacks();
@@ -151,14 +162,17 @@ impl CacheTable {
         self.inner.added_item.write().unwrap().push(Box::new(f));
     }
 
+    /// Appends a new callback to the added_item queue.
     pub fn add_added_item_callback(&mut self, f: impl Fn(CacheItem) + Send + Sync + 'static) {
         self.inner.added_item.write().unwrap().push(Box::new(f));
     }
 
+    /// Removes all added_item callbacks.
     pub fn remove_added_item_callbacks(&mut self) {
         self.inner.added_item.write().unwrap().clear();
     }
 
+    /// Configures a callback, which will be called when an item is about to be deleted from the cache.
     pub fn set_about_to_delete_item_callback(
         &mut self,
         f: impl Fn(CacheItem) + Send + Sync + 'static,
@@ -184,10 +198,16 @@ impl CacheTable {
             .push(Box::new(f));
     }
 
+    /// Removes all about_to_delete_item callbacks.
     pub fn remove_about_to_delete_item_callbacks(&mut self) {
         self.inner.about_to_delete_item.write().unwrap().clear();
     }
 
+    /// Adds a key/value pair to the cache.
+    ///
+    /// Parameter key is the item's cache-key.
+    /// Parameter life_span determines after which time period without an access the item will get removed from the cache.
+    /// Parameter value is the item's value.
     pub fn add<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
@@ -245,6 +265,7 @@ impl CacheTable {
         ret
     }
 
+    /// Returns the value of the item with the given key.
     pub fn get<K: 'static + TypedMap + Send + Sync + Clone>(&self, key: &K) -> Option<CacheItem>
     where
         K::Value: Send + Sync,
@@ -258,6 +279,7 @@ impl CacheTable {
             .cloned()
     }
 
+    /// Deletes the item with the given key from the cache.
     pub fn delete<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: &K,
@@ -314,6 +336,9 @@ impl CacheTable {
         }
     }
 
+    /// Returns whether an item exists in the cache.
+    ///
+    /// Unlike the value method, exists neither tries to fetch data via the loadData callback nor does it keep the item alive in the cache.
     pub fn exists<K: 'static + TypedMap + Send + Sync + Clone>(&self, key: K) -> bool
     where
         K::Value: Send + Sync,
@@ -325,6 +350,9 @@ impl CacheTable {
             .contains_key(&TypedKey::from_key(key))
     }
 
+    /// Checks whether an item is not yet cached.
+    ///
+    /// Unlike the exists method this also adds data if the key could not be found.
     pub fn not_found_add<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
@@ -348,6 +376,7 @@ impl CacheTable {
         true
     }
 
+    /// Returns an item from the cache and marks it to be kept alive.
     pub fn value<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
@@ -375,6 +404,7 @@ impl CacheTable {
         }
     }
 
+    /// Deletes all items from this cache table.
     pub fn flush(&self) {
         tracing::trace!("Flushing table {}", self.inner.name);
         self.inner.items.write().unwrap().clear();

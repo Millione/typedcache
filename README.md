@@ -19,7 +19,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [build-dependencies]
-typedcache = "0.1"
+typedcache = "0.2"
 ```
 
 ## Example
@@ -30,18 +30,16 @@ use typedcache::typed::TypedMap;
 
 #[tokio::main]
 async fn main() {
-    let cache = typedcache::cache("test".into()).await;
+    let cache = typedcache::cache("test".into());
     cache
         .add(
             TestKey("key_erpired_after_1s".into()),
             Duration::from_secs(1),
             TestValue(1),
-        )
-        .await;
+        );
     tokio::time::sleep(Duration::from_secs(2)).await;
     assert!(cache
         .get(&TestKey("key_erpired_after_1s".into()))
-        .await
         .is_none());
 }
 
