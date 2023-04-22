@@ -12,15 +12,7 @@ pub struct TestValue(usize);
 
 #[tokio::test]
 async fn not_found_add() {
-    let cache = typedcache::cache("test".into()).await;
-    assert!(
-        cache
-            .not_found_add(TestKey(1), Duration::ZERO, TestValue(1))
-            .await
-    );
-    assert!(
-        !cache
-            .not_found_add(TestKey(1), Duration::ZERO, TestValue(1))
-            .await
-    );
+    let cache = typedcache::cache("test".into());
+    assert!(cache.not_found_add(TestKey(1), Duration::ZERO, TestValue(1)));
+    assert!(!cache.not_found_add(TestKey(1), Duration::ZERO, TestValue(1)));
 }

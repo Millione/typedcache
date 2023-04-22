@@ -7,7 +7,7 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use tokio::sync::RwLock;
+use std::sync::RwLock;
 
 use crate::typed::{typedkey::TypedKey, typedvalue::TypedValue, TypedMap};
 
@@ -85,19 +85,19 @@ impl CacheItem {
         &self.inner.value
     }
 
-    pub async fn set_about_to_expire_callback(&self, f: Box<dyn Fn(&TypedKey) + Send + Sync>) {
-        let mut guard = self.inner.about_to_expire.write().await;
+    pub fn set_about_to_expire_callback(&self, f: Box<dyn Fn(&TypedKey) + Send + Sync>) {
+        let mut guard = self.inner.about_to_expire.write().unwrap();
         if guard.len() > 0 {
             guard.clear();
         }
         guard.push(f);
     }
 
-    pub async fn add_about_to_expire_callback(&self, f: Box<dyn Fn(&TypedKey) + Send + Sync>) {
-        self.inner.about_to_expire.write().await.push(f);
+    pub fn add_about_to_expire_callback(&self, f: Box<dyn Fn(&TypedKey) + Send + Sync>) {
+        self.inner.about_to_expire.write().unwrap().push(f);
     }
 
-    pub async fn remove_about_to_expire_callback(&self) {
-        self.inner.about_to_expire.write().await.clear();
+    pub fn remove_about_to_expire_callback(&self) {
+        self.inner.about_to_expire.write().unwrap().clear();
     }
 }

@@ -7,17 +7,15 @@ use typedcache::{
 
 #[tokio::main]
 async fn main() {
-    let mut cache = typedcache::cache("test".into()).await;
-    cache
-        .set_data_loader(|key: TypedKey| {
-            let key = key.downcast_ref::<TestKey>().unwrap();
-            let val = TestValue(format!("This is a test with key {}", key.0));
-            Some(CacheItem::new(key.clone(), Duration::from_secs(0), val))
-        })
-        .await;
+    let mut cache = typedcache::cache("test".into());
+    cache.set_data_loader(|key: TypedKey| {
+        let key = key.downcast_ref::<TestKey>().unwrap();
+        let val = TestValue(format!("This is a test with key {}", key.0));
+        Some(CacheItem::new(key.clone(), Duration::from_secs(0), val))
+    });
     for i in 0..10 {
         let key = TestKey(format!("someKey_{}", i));
-        match cache.value(key).await {
+        match cache.value(key) {
             Ok(val) => {
                 println!(
                     "Found value in cache: {:?}",

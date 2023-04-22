@@ -5,10 +5,8 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use tokio::sync::{
-    mpsc::{self, UnboundedSender},
-    RwLock,
-};
+use std::sync::RwLock;
+use tokio::sync::mpsc::{self, UnboundedSender};
 
 use crate::{
     error::Error,
@@ -64,7 +62,7 @@ impl CacheTable {
                             {
                                 let now = Instant::now();
                                 let mut to_remove = Vec::new();
-                                let mut w = cache_table.inner.items.write().await;
+                                let mut w = cache_table.inner.items.write().unwrap();
 
                                 for (_, item) in w.iter() {
                                     let life_span = item.life_span();
@@ -85,7 +83,7 @@ impl CacheTable {
                                 for item in to_remove {
                                     if let Some(item) = w.remove(item.key()) {
                                         {
-                                            let about_to_delete_item = cache_table.inner.about_to_delete_item.read().await;
+                                            let about_to_delete_item = cache_table.inner.about_to_delete_item.read().unwrap();
                                             if !about_to_delete_item.is_empty() {
                                                 for callback in about_to_delete_item.iter() {
                                                     callback(item.clone());
@@ -94,7 +92,7 @@ impl CacheTable {
                                         }
 
                                         {
-                                            let about_to_expire = item.inner.about_to_expire.read().await;
+                                            let about_to_expire = item.inner.about_to_expire.read().unwrap();
                                             if !about_to_expire.is_empty() {
                                                 for callback in about_to_expire.iter() {
                                                     callback(item.key());
@@ -128,69 +126,69 @@ impl CacheTable {
         cache_table
     }
 
-    pub async fn count(&self) -> usize {
-        self.inner.items.read().await.len()
+    pub fn count(&self) -> usize {
+        self.inner.items.read().unwrap().len()
     }
 
-    pub async fn foreach(&self, trans: impl Fn(&TypedKey, CacheItem)) {
-        let items = self.inner.items.read().await;
+    pub fn foreach(&self, trans: impl Fn(&TypedKey, CacheItem)) {
+        let items = self.inner.items.read().unwrap();
         for (k, v) in items.iter() {
             trans(k, v.clone());
         }
     }
 
-    pub async fn set_data_loader(
+    pub fn set_data_loader(
         &mut self,
         f: impl Fn(TypedKey) -> Option<CacheItem> + Send + Sync + 'static,
     ) {
-        *self.inner.load_data.write().await = Some(Box::new(f));
+        *self.inner.load_data.write().unwrap() = Some(Box::new(f));
     }
 
-    pub async fn set_added_item_callback(&mut self, f: impl Fn(CacheItem) + Send + Sync + 'static) {
-        if !self.inner.added_item.read().await.is_empty() {
-            self.remove_added_item_callbacks().await;
+    pub fn set_added_item_callback(&mut self, f: impl Fn(CacheItem) + Send + Sync + 'static) {
+        if !self.inner.added_item.read().unwrap().is_empty() {
+            self.remove_added_item_callbacks();
         }
-        self.inner.added_item.write().await.push(Box::new(f));
+        self.inner.added_item.write().unwrap().push(Box::new(f));
     }
 
-    pub async fn add_added_item_callback(&mut self, f: impl Fn(CacheItem) + Send + Sync + 'static) {
-        self.inner.added_item.write().await.push(Box::new(f));
+    pub fn add_added_item_callback(&mut self, f: impl Fn(CacheItem) + Send + Sync + 'static) {
+        self.inner.added_item.write().unwrap().push(Box::new(f));
     }
 
-    pub async fn remove_added_item_callbacks(&mut self) {
-        self.inner.added_item.write().await.clear();
+    pub fn remove_added_item_callbacks(&mut self) {
+        self.inner.added_item.write().unwrap().clear();
     }
 
-    pub async fn set_about_to_delete_item_callback(
+    pub fn set_about_to_delete_item_callback(
         &mut self,
         f: impl Fn(CacheItem) + Send + Sync + 'static,
     ) {
-        if !self.inner.about_to_delete_item.read().await.is_empty() {
-            self.remove_about_to_delete_item_callbacks().await;
+        if !self.inner.about_to_delete_item.read().unwrap().is_empty() {
+            self.remove_about_to_delete_item_callbacks();
         }
         self.inner
             .about_to_delete_item
             .write()
-            .await
+            .unwrap()
             .push(Box::new(f));
     }
 
-    pub async fn add_about_to_delete_item_callback(
+    pub fn add_about_to_delete_item_callback(
         &mut self,
         f: impl Fn(CacheItem) + Send + Sync + 'static,
     ) {
         self.inner
             .about_to_delete_item
             .write()
-            .await
+            .unwrap()
             .push(Box::new(f));
     }
 
-    pub async fn remove_about_to_delete_item_callbacks(&mut self) {
-        self.inner.about_to_delete_item.write().await.clear();
+    pub fn remove_about_to_delete_item_callbacks(&mut self) {
+        self.inner.about_to_delete_item.write().unwrap().clear();
     }
 
-    pub async fn add<K: 'static + TypedMap + Send + Sync + Clone>(
+    pub fn add<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
         life_span: Duration,
@@ -200,10 +198,10 @@ impl CacheTable {
         K::Value: Send + Sync,
     {
         let item = CacheItem::new(key.clone(), life_span, value);
-        self.add_internal(key, item).await
+        self.add_internal(key, item)
     }
 
-    async fn add_internal<K: 'static + TypedMap + Send + Sync + Clone>(
+    fn add_internal<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
         item: CacheItem,
@@ -220,11 +218,11 @@ impl CacheTable {
             .inner
             .items
             .write()
-            .await
+            .unwrap()
             .insert(TypedKey::from_key(key), item.clone());
 
         {
-            let added_item = self.inner.added_item.read().await;
+            let added_item = self.inner.added_item.read().unwrap();
             if !added_item.is_empty() {
                 for callback in added_item.iter() {
                     callback(item.clone());
@@ -247,10 +245,7 @@ impl CacheTable {
         ret
     }
 
-    pub async fn get<K: 'static + TypedMap + Send + Sync + Clone>(
-        &self,
-        key: &K,
-    ) -> Option<CacheItem>
+    pub fn get<K: 'static + TypedMap + Send + Sync + Clone>(&self, key: &K) -> Option<CacheItem>
     where
         K::Value: Send + Sync,
     {
@@ -258,22 +253,22 @@ impl CacheTable {
         self.inner
             .items
             .read()
-            .await
+            .unwrap()
             .get(&typed_key_ref as &dyn Key)
             .cloned()
     }
 
-    pub async fn delete<K: 'static + TypedMap + Send + Sync + Clone>(
+    pub fn delete<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: &K,
     ) -> Result<CacheItem, Error>
     where
         K::Value: Send + Sync,
     {
-        self.delete_internal(key).await
+        self.delete_internal(key)
     }
 
-    async fn delete_internal<K: 'static + TypedMap + Send + Sync + Clone>(
+    fn delete_internal<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: &K,
     ) -> Result<CacheItem, Error>
@@ -285,7 +280,7 @@ impl CacheTable {
             .inner
             .items
             .write()
-            .await
+            .unwrap()
             .remove(&typed_key_ref as &dyn Key)
         {
             tracing::trace!(
@@ -296,7 +291,7 @@ impl CacheTable {
             );
 
             {
-                let about_to_delete_item = self.inner.about_to_delete_item.read().await;
+                let about_to_delete_item = self.inner.about_to_delete_item.read().unwrap();
                 if !about_to_delete_item.is_empty() {
                     for callback in about_to_delete_item.iter() {
                         callback(item.clone());
@@ -305,7 +300,7 @@ impl CacheTable {
             }
 
             {
-                let about_to_expire = item.inner.about_to_expire.read().await;
+                let about_to_expire = item.inner.about_to_expire.read().unwrap();
                 if !about_to_expire.is_empty() {
                     for callback in about_to_expire.iter() {
                         callback(item.key());
@@ -319,18 +314,18 @@ impl CacheTable {
         }
     }
 
-    pub async fn exists<K: 'static + TypedMap + Send + Sync + Clone>(&self, key: K) -> bool
+    pub fn exists<K: 'static + TypedMap + Send + Sync + Clone>(&self, key: K) -> bool
     where
         K::Value: Send + Sync,
     {
         self.inner
             .items
             .read()
-            .await
+            .unwrap()
             .contains_key(&TypedKey::from_key(key))
     }
 
-    pub async fn not_found_add<K: 'static + TypedMap + Send + Sync + Clone>(
+    pub fn not_found_add<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
         life_span: Duration,
@@ -343,17 +338,17 @@ impl CacheTable {
             .inner
             .items
             .write()
-            .await
+            .unwrap()
             .contains_key(&TypedKey::from_key(key.clone()))
         {
             return false;
         }
         let item = CacheItem::new(key.clone(), life_span, value);
-        self.add_internal(key, item).await;
+        self.add_internal(key, item);
         true
     }
 
-    pub async fn value<K: 'static + TypedMap + Send + Sync + Clone>(
+    pub fn value<K: 'static + TypedMap + Send + Sync + Clone>(
         &self,
         key: K,
     ) -> Result<CacheItem, Error>
@@ -361,16 +356,16 @@ impl CacheTable {
         K::Value: Send + Sync,
     {
         let typed_key = TypedKey::from_key(key.clone());
-        let items = self.inner.items.read().await;
+        let items = self.inner.items.read().unwrap();
         if let Some(item) = items.get(&typed_key) {
             item.keep_alive();
             Ok(item.clone())
         } else {
             drop(items);
-            let load_data = self.inner.load_data.read().await;
+            let load_data = self.inner.load_data.read().unwrap();
             if let Some(load_data) = load_data.as_ref() {
                 if let Some(item) = load_data(typed_key) {
-                    self.add_internal(key, item.clone()).await;
+                    self.add_internal(key, item.clone());
                     return Ok(item);
                 }
                 Err(Error::KeyNotFoundOrLoadable)
@@ -380,9 +375,9 @@ impl CacheTable {
         }
     }
 
-    pub async fn flush(&self) {
+    pub fn flush(&self) {
         tracing::trace!("Flushing table {}", self.inner.name);
-        self.inner.items.write().await.clear();
+        self.inner.items.write().unwrap().clear();
         self.inner.clean_up_interval.store(Arc::new(Duration::ZERO));
     }
 }

@@ -22,8 +22,7 @@ async fn not_found_add(num: u32) {
             .take(100)
             .map(char::from)
             .collect(),
-    )
-    .await;
+    );
 
     let added = AtomicU32::new(0);
     let idle = AtomicU32::new(0);
@@ -31,10 +30,7 @@ async fn not_found_add(num: u32) {
         for _ in 0..num {
             s.spawn(async {
                 for j in 0..100 {
-                    if table
-                        .not_found_add(TestKey(j), Duration::ZERO, TestValue(j))
-                        .await
-                    {
+                    if table.not_found_add(TestKey(j), Duration::ZERO, TestValue(j)) {
                         added.fetch_add(1, Ordering::Relaxed);
                     } else {
                         idle.fetch_add(1, Ordering::Relaxed);
