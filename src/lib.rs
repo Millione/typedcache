@@ -15,18 +15,18 @@ lazy_static::lazy_static! {
 
 // Cache returns the existing cache table with given name or creates a new one
 // if the table does not exist yet.
-pub fn cache(table: String) -> CacheTable {
-    let r = CACHE.read().unwrap();
-    if let Some(t) = r.get(&table) {
-        t.clone()
+pub fn cache(name: String) -> CacheTable {
+    let cache = CACHE.read().unwrap();
+    if let Some(table) = cache.get(&name) {
+        table.to_owned()
     } else {
-        drop(r);
-        let mut w = CACHE.write().unwrap();
-        if w.contains_key(&table) {
-            return w.get(&table).unwrap().clone();
+        drop(cache);
+        let mut cache = CACHE.write().unwrap();
+        if cache.contains_key(&name) {
+            return cache.get(&name).unwrap().to_owned();
         }
-        let t = CacheTable::new(table.clone());
-        w.insert(table, t.clone());
-        t
+        let table = CacheTable::new(name.clone());
+        cache.insert(name, table.clone());
+        table
     }
 }
