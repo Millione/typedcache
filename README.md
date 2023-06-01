@@ -18,7 +18,7 @@ This crate provides concurrent-safe typedcache with expiration capabilities.
 Add this to your `Cargo.toml`:
 
 ```toml
-[build-dependencies]
+[dependencies]
 typedcache = "0.2"
 ```
 
